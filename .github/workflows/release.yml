@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'R*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup build environment
+        run: |
+          # Ensure Xcode Command Line Tools are available
+          xcode-select --print-path
+      
+      - name: Setup VapourSynth headers
+        run: |
+          brew install vapoursynth
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build -D CMAKE_BUILD_TYPE=Release -D VAPOURSYNTH_INCLUDE_DIRECTORY="/opt/homebrew/include/vapoursynth/"
+      
+      - name: Build project
+        run: |
+          cmake --build build --config Release
+      
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          cp build/lib/libeedi3metal.dylib release/libeedi3metal.dylib
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/libeedi3metal.dylib
+          draft: true
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
