@@ -668,8 +668,8 @@ static void VS_CC eedi3Create(const VSMap *in, VSMap *out,
         d->vi = *vsapi->getVideoInfo(d->node);
 
         if (!vsh::isConstantVideoFormat(&d->vi) ||
-            (d->vi.format.sampleType == stFloat &&
-             d->vi.format.bitsPerSample != 32)) {
+            d->vi.format.sampleType != stFloat ||
+            d->vi.format.bitsPerSample != 32) {
             throw "only constant format 32 bit float input supported for Metal"s;
         }
 
