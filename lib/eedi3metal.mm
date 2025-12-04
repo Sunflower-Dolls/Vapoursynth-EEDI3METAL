@@ -461,7 +461,7 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
                     &d->padFormat, dst_width + (MARGIN_H * 2),
                     dst_height + (MARGIN_V * 2), nullptr, core);
 
-                copyPad<float>(src, pad, plane, d->dh, 1 - field_n, vsapi);
+                copyPad(src, pad, plane, d->dh, 1 - field_n, vsapi);
 
                 const auto *src_ptr_base =
                     reinterpret_cast<const float *>(vsapi->getReadPtr(pad, 0));
@@ -492,10 +492,9 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
 
                 std::vector<float> tline(dst_width);
 
-                vCheck<float>(aligned_src_ptr, aligned_scpp, aligned_dst_ptr,
-                              aligned_dmap_ptr, tline.data(), field_n,
-                              dst_width, padded_height, pad_stride_pixels,
-                              dst_stride_pixels, d);
+                vCheck(aligned_src_ptr, aligned_scpp, aligned_dst_ptr,
+                       aligned_dmap_ptr, tline.data(), field_n, dst_width,
+                       padded_height, pad_stride_pixels, dst_stride_pixels, d);
 
                 vsapi->freeFrame(pad);
                 if (scp != nullptr) {
