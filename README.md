@@ -78,3 +78,23 @@ Ported from AviSynth plugin http://bengal.missouri.edu/~kes25c/ and http://ldeso
 ```
 
 * mclip: A mask to use edge-directed interpolation only on specified pixels. Pixels where the mask is 0 are generated using cubic linear or bicubic interpolation. The main goal of the mask is to save calculations.
+
+## Statistics - Compute Complexity
+
+The estimated time per frame ($T$) is proportional to the total resolution:
+
+$$ T \propto \text{Total Pixels} \times S_{dh} \times (A \cdot \text{mdis} \cdot \text{nrad} + B \cdot \text{mdis} + C) $$
+
+Where:
+*   **$S_{dh}$**: Field mode scaler. **2.0** if `dh=True`, **1.0** if `dh=False`.
+*   **$A$**: Coefficient for the inner loop (`calc_costs`).
+*   **$B$**: Coefficient for the outer loop (`viterbi_scan`).
+*   **$C$**: Base constant.
+
+### Reference Coefficients (Resolution: 1920x1080, 3 Planes, M2 Pro with 32GB Memory)
+
+| Component         | Term | Metal Coef ($s$) | CPU (sse2neon) Coef ($s$) | Ratio (CPU/Metal) |
+| :---------------- | :--- | :--------------- | :------------------------ | :---------------- |
+| **Inner Loop**    | $A$  | **0.00146**      | **0.00160**               | **1.10x**         |
+| **Outer Loop**    | $B$  | **0.00249**      | **0.00404**               | **1.63x**         |
+| **Base Overhead** | $C$  | -0.008           | +0.017                    | N/A               |

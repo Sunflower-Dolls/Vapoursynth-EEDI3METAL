@@ -453,7 +453,6 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
             const int dst_stride_pixels =
                 static_cast<int>(dst_stride_bytes / sizeof(float));
 
-            // Retrieve pointers to GPU results
             int *dmap_ptr = static_cast<int *>([res.dmapBuffer contents]);
 
             if (d->vcheck > 0) {
