@@ -107,35 +107,61 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
                        device float* cost_buffer [[buffer(1)]],
                        constant EEDI3Params& p [[buffer(2)]],
                        device const bool* bmask_global [[buffer(3)]],
-                       uint2 gid [[thread_position_in_grid]]) {
-    if (gid.x >= (uint)p.width)
-        return;
+                       threadgroup float* shared_mem [[threadgroup(0)]],
+                       uint2 gid [[thread_position_in_grid]],
+                       uint2 tid [[thread_position_in_threadgroup]],
+                       uint2 tg_pos [[threadgroup_position_in_grid]]) {
+    int halo = p.mdis + p.nrad;
+    int shared_width = 16 + 2 * halo;
 
-    int x = gid.x;
+    int t_x = tid.x;
+    int t_y = tid.y;
     int y = p.field + gid.y * 2;
-    if (y >= p.height)
+
+    threadgroup float* s_m3 = shared_mem + (t_y * 4 + 0) * shared_width;
+    threadgroup float* s_m1 = shared_mem + (t_y * 4 + 1) * shared_width;
+    threadgroup float* s_p1 = shared_mem + (t_y * 4 + 2) * shared_width;
+    threadgroup float* s_p3 = shared_mem + (t_y * 4 + 3) * shared_width;
+
+    if (y < p.height) {
+        int ref_field = 1 - p.field;
+        int src_h = p.height;
+        int stride = p.stride;
+
+        int r_m3 = get_clamped_y_row_index(y - 3, src_h, ref_field, src_h, p.dh);
+        int r_m1 = get_clamped_y_row_index(y - 1, src_h, ref_field, src_h, p.dh);
+        int r_p1 = get_clamped_y_row_index(y + 1, src_h, ref_field, src_h, p.dh);
+        int r_p3 = get_clamped_y_row_index(y + 3, src_h, ref_field, src_h, p.dh);
+
+        device const float* g_row_m3 = src_buf + r_m3 * stride;
+        device const float* g_row_m1 = src_buf + r_m1 * stride;
+        device const float* g_row_p1 = src_buf + r_p1 * stride;
+        device const float* g_row_p3 = src_buf + r_p3 * stride;
+
+        int group_base_x = tg_pos.x * 16;
+        
+        for (int k = t_x; k < shared_width; k += 16) {
+            int global_read_x = group_base_x - halo + k;
+            int ix = mirror_x(global_read_x, p.width);
+            
+            s_m3[k] = g_row_m3[ix];
+            s_m1[k] = g_row_m1[ix];
+            s_p1[k] = g_row_p1[ix];
+            s_p3[k] = g_row_p3[ix];
+        }
+    }
+
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    if (gid.x >= (uint)p.width || y >= p.height)
         return;
 
-    int ref_field = 1 - p.field;
-    int src_h = p.height;
-
-    int r_m3 = get_clamped_y_row_index(y - 3, src_h, ref_field, src_h, p.dh);
-    int r_m1 = get_clamped_y_row_index(y - 1, src_h, ref_field, src_h, p.dh);
-    int r_p1 = get_clamped_y_row_index(y + 1, src_h, ref_field, src_h, p.dh);
-    int r_p3 = get_clamped_y_row_index(y + 3, src_h, ref_field, src_h, p.dh);
-
-    int stride = p.stride;
-    device const float* row_m3 = src_buf + r_m3 * stride;
-    device const float* row_m1 = src_buf + r_m1 * stride;
-    device const float* row_p1 = src_buf + r_p1 * stride;
-    device const float* row_p3 = src_buf + r_p3 * stride;
-
-    float src_p = row_m1[x]; // mirror_x(x) inside bound is x
-    float src_n = row_p1[x];
+    int s_center = halo + t_x;
 
     device const bool* bmask = (p.has_mclip && bmask_global)
                                    ? (bmask_global + gid.y * p.width)
                                    : nullptr;
+    int x = gid.x;
     bool use_eedi3 = (!bmask || bmask[x]);
     int width = p.width;
 
@@ -154,18 +180,12 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
 
         float s0 = 0.0f;
         for (int k = -p.nrad; k <= p.nrad; ++k) {
-            int x_uk = x + u + k;
-            int x_mk = x - u + k;
-
-            int ix_uk = mirror_x(x_uk, width);
-            int ix_mk = mirror_x(x_mk, width);
-
-            float val_3p = row_m3[ix_uk];
-            float val_1p_neg = row_m1[ix_mk];
-            float val_1p_pos = row_m1[ix_uk];
-            float val_1n_neg = row_p1[ix_mk];
-            float val_1n_pos = row_p1[ix_uk];
-            float val_3n = row_p3[ix_mk];
+            float val_3p = s_m3[s_center + u + k];
+            float val_1p_neg = s_m1[s_center - u + k];
+            float val_1p_pos = s_m1[s_center + u + k];
+            float val_1n_neg = s_p1[s_center - u + k];
+            float val_1n_pos = s_p1[s_center + u + k];
+            float val_3n = s_p3[s_center - u + k];
 
             s0 += abs(val_3p - val_1p_neg) + abs(val_1p_pos - val_1n_neg) +
                   abs(val_1n_pos - val_3n);
@@ -182,18 +202,12 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
             if (s1_valid) {
                 float temp_s1 = 0.0f;
                 for (int k = -p.nrad; k <= p.nrad; ++k) {
-                    int x_k = x + k;
-                    int x_u2k = x - u2 + k;
-
-                    int ix_k = mirror_x(x_k, width);
-                    int ix_u2k = mirror_x(x_u2k, width);
-
-                    float v_3p = row_m3[ix_k];
-                    float v_1p = row_m1[ix_u2k];
-                    float v_1p_c = row_m1[ix_k];
-                    float v_1n = row_p1[ix_u2k];
-                    float v_1n_c = row_p1[ix_k];
-                    float v_3n = row_p3[ix_u2k];
+                   float v_3p = s_m3[s_center + k];
+                   float v_1p = s_m1[s_center - u2 + k];
+                   float v_1p_c = s_m1[s_center + k];
+                   float v_1n = s_p1[s_center - u2 + k];
+                   float v_1n_c = s_p1[s_center + k];
+                   float v_3n = s_p3[s_center - u2 + k];
 
                     temp_s1 += abs(v_3p - v_1p) + abs(v_1p_c - v_1n) +
                                abs(v_1n_c - v_3n);
@@ -205,18 +219,12 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
             if (s2_valid) {
                 float temp_s2 = 0.0f;
                 for (int k = -p.nrad; k <= p.nrad; ++k) {
-                    int x_u2k = x + u2 + k;
-                    int x_k = x + k;
-
-                    int ix_u2k = mirror_x(x_u2k, width);
-                    int ix_k = mirror_x(x_k, width);
-
-                    float v_3p = row_m3[ix_u2k];
-                    float v_1p = row_m1[ix_k];
-                    float v_1p_c = row_m1[ix_u2k];
-                    float v_1n = row_p1[ix_k];
-                    float v_1n_c = row_p1[ix_u2k];
-                    float v_3n = row_p3[ix_k];
+                    float v_3p = s_m3[s_center + u2 + k];
+                    float v_1p = s_m1[s_center + k];
+                    float v_1p_c = s_m1[s_center + u2 + k];
+                    float v_1n = s_p1[s_center + k];
+                    float v_1n_c = s_p1[s_center + u2 + k];
+                    float v_3n = s_p3[s_center + k];
 
                     temp_s2 += abs(v_3p - v_1p) + abs(v_1p_c - v_1n) +
                                abs(v_1n_c - v_3n);
@@ -241,9 +249,12 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
             final_s += val_s1 + val_s2;
         }
 
-        float ip_p1 = row_m1[mirror_x(x + u, width)];
-        float ip_n1 = row_p1[mirror_x(x - u, width)];
+        float ip_p1 = s_m1[s_center + u];
+        float ip_n1 = s_p1[s_center - u];
         float ip = (ip_p1 + ip_n1) * 0.5f;
+
+        float src_p = s_m1[s_center];
+        float src_n = s_p1[s_center];
 
         float v = abs(src_p - ip) + abs(src_n - ip);
 

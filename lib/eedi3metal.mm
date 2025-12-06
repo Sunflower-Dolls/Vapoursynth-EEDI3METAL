@@ -404,11 +404,16 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
                     threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
             }
 
+            int halo = d->mdis + d->nrad;
+            int shared_width = 16 + (2 * halo);
+            int shared_mem_size = 16 * 4 * shared_width * sizeof(float);
+
             [enc setComputePipelineState:metal_d->calc_costs_pso];
             [enc setBuffer:src_buf_metal offset:0 atIndex:0];
             [enc setBuffer:res.costBuffer offset:0 atIndex:1];
             [enc setBuffer:res.paramsBuffer offset:0 atIndex:2];
             [enc setBuffer:res.bmaskBuffer offset:0 atIndex:3];
+            [enc setThreadgroupMemoryLength:shared_mem_size atIndex:0];
 
             [enc dispatchThreads:MTLSizeMake(dst_width, field_height, 1)
                 threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
