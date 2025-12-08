@@ -111,7 +111,7 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
                        uint2 gid [[thread_position_in_grid]],
                        uint2 tid [[thread_position_in_threadgroup]],
                        uint2 tg_pos [[threadgroup_position_in_grid]]) {
-    int halo = p.mdis + p.nrad;
+    int halo = (p.cost3 ? 2 * p.mdis : p.mdis) + p.nrad;
     int shared_width = 16 + 2 * halo;
 
     int t_x = tid.x;

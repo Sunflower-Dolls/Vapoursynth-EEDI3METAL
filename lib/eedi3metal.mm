@@ -404,7 +404,7 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
                     threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
             }
 
-            int halo = d->mdis + d->nrad;
+            int halo = (d->cost3 ? 2 * d->mdis : d->mdis) + d->nrad;
             int shared_width = 16 + (2 * halo);
             int shared_mem_size = 16 * 4 * shared_width * sizeof(float);
 
