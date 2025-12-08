@@ -399,9 +399,14 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
                 [enc setBuffer:mclip_buf_metal offset:0 atIndex:0];
                 [enc setBuffer:res.bmaskBuffer offset:0 atIndex:1];
                 [enc setBuffer:res.paramsBuffer offset:0 atIndex:2];
-                // 1D dispatch, 1 threadgroup per line
-                [enc dispatchThreadgroups:MTLSizeMake(field_height, 1, 1)
-                    threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
+                int mask_halo = d->mdis;
+                int mask_shared_width = 32 + (2 * mask_halo);
+                int shared_mask_size = 16 * mask_shared_width * sizeof(float);
+
+                [enc setThreadgroupMemoryLength:shared_mask_size atIndex:0];
+                // 2D dispatch
+                [enc dispatchThreads:MTLSizeMake(dst_width, field_height, 1)
+                    threadsPerThreadgroup:MTLSizeMake(32, 16, 1)];
             }
 
             int halo = (d->cost3 ? 2 * d->mdis : d->mdis) + d->nrad;

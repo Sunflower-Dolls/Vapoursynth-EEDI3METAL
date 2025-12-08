@@ -67,40 +67,73 @@ kernel void copy_field(device float* src_buf [[buffer(0)]],
 kernel void dilate_mask(device float* mclip_buf [[buffer(0)]],
                         device bool* bmask_global [[buffer(1)]],
                         constant EEDI3Params& p [[buffer(2)]],
-                        uint gid_y [[thread_position_in_grid]]) {
+                        threadgroup float* shared_mem [[threadgroup(0)]],
+                        uint2 gid [[thread_position_in_grid]],
+                        uint2 tid [[thread_position_in_threadgroup]],
+                        uint2 tg_pos [[threadgroup_position_in_grid]]) {
+    
+    int mdis = p.mdis;
+    int halo = mdis;
+    int sw = 32 + 2 * halo;
+    
+    int ty = tid.y;
+    int tx = tid.x;
+    
+    threadgroup float* my_shared_row = shared_mem + ty * sw;
+    
+    int group_start_x = tg_pos.x * 32;
+    
     uint src_y;
     if (p.dh) {
-        src_y = gid_y;
+        src_y = p.field + gid.y * 2;
+        if (p.dh) {
+            src_y = gid.y;
+        } else {
+            src_y = p.field + gid.y * 2;
+        }
     } else {
-        src_y = p.field + gid_y * 2;
+        if (p.dh) {
+            src_y = gid.y;
+        } else {
+            src_y = p.field + gid.y * 2;
+        }
     }
 
-    if (src_y >= (uint)p.height)
+    bool valid_row = (src_y < (uint)p.height);
+    
+    device float* row_mclip = nullptr;
+    if (valid_row) {
+        row_mclip = mclip_buf + src_y * p.stride;
+    }
+
+    for (int k = tx; k < sw; k += 32) {
+        int global_x = group_start_x - halo + k;
+        
+        float val = 0.0f;
+        if (valid_row) {
+             if (global_x >= 0 && global_x < p.width) {
+                 val = row_mclip[global_x];
+             }
+        }
+        my_shared_row[k] = val;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    if (gid.x >= (uint)p.width || !valid_row)
         return;
 
-    const int width = p.width;
-    const int mdis = p.mdis;
-    const int minmdis = min(width, mdis);
-    int last = -666999;
+    bool mask = false;
+    int center = halo + tx;
 
-    for (int x = 0; x < minmdis; x++) {
-        if (x < width && mclip_buf[src_y * p.stride + x] != 0.0f) {
-            last = x + mdis;
+    for (int k = -mdis; k <= mdis; ++k) {
+        if (my_shared_row[center + k] != 0.0f) {
+            mask = true;
+            break;
         }
     }
-
-    device bool* bmask = bmask_global + gid_y * width;
-
-    for (int x = 0; x < width - minmdis; x++) {
-        int read_x = x + mdis;
-        if (read_x < width && mclip_buf[src_y * p.stride + read_x] != 0.0f) {
-            last = read_x + mdis;
-        }
-        bmask[x] = (x <= last);
-    }
-
-    for (int x = width - minmdis; x < width; x++)
-        bmask[x] = (x <= last);
+    
+    bmask_global[gid.y * p.width + gid.x] = mask;
 }
 
 kernel void calc_costs(device const float* src_buf [[buffer(0)]],
