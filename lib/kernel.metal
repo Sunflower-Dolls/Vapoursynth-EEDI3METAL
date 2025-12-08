@@ -212,13 +212,20 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
         }
 
         float s0 = 0.0f;
+        threadgroup float* ptr_m3_pos = s_m3 + s_center + u;
+        threadgroup float* ptr_m1_neg = s_m1 + s_center - u;
+        threadgroup float* ptr_m1_pos = s_m1 + s_center + u;
+        threadgroup float* ptr_p1_neg = s_p1 + s_center - u;
+        threadgroup float* ptr_p1_pos = s_p1 + s_center + u;
+        threadgroup float* ptr_p3_neg = s_p3 + s_center - u;
+
         for (int k = -p.nrad; k <= p.nrad; ++k) {
-            float val_3p = s_m3[s_center + u + k];
-            float val_1p_neg = s_m1[s_center - u + k];
-            float val_1p_pos = s_m1[s_center + u + k];
-            float val_1n_neg = s_p1[s_center - u + k];
-            float val_1n_pos = s_p1[s_center + u + k];
-            float val_3n = s_p3[s_center - u + k];
+            float val_3p = ptr_m3_pos[k];
+            float val_1p_neg = ptr_m1_neg[k];
+            float val_1p_pos = ptr_m1_pos[k];
+            float val_1n_neg = ptr_p1_neg[k];
+            float val_1n_pos = ptr_p1_pos[k];
+            float val_3n = ptr_p3_neg[k];
 
             s0 += abs(val_3p - val_1p_neg) + abs(val_1p_pos - val_1n_neg) +
                   abs(val_1n_pos - val_3n);
@@ -234,13 +241,20 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
             bool s1_valid = (u >= 0 && x >= u2) || (u <= 0 && x < width + u2);
             if (s1_valid) {
                 float temp_s1 = 0.0f;
+                threadgroup float* ptr_m3_c = s_m3 + s_center;
+                threadgroup float* ptr_m1_neg2 = s_m1 + s_center - u2;
+                threadgroup float* ptr_m1_c = s_m1 + s_center;
+                threadgroup float* ptr_p1_neg2 = s_p1 + s_center - u2;
+                threadgroup float* ptr_p1_c = s_p1 + s_center;
+                threadgroup float* ptr_p3_neg2 = s_p3 + s_center - u2;
+
                 for (int k = -p.nrad; k <= p.nrad; ++k) {
-                   float v_3p = s_m3[s_center + k];
-                   float v_1p = s_m1[s_center - u2 + k];
-                   float v_1p_c = s_m1[s_center + k];
-                   float v_1n = s_p1[s_center - u2 + k];
-                   float v_1n_c = s_p1[s_center + k];
-                   float v_3n = s_p3[s_center - u2 + k];
+                   float v_3p = ptr_m3_c[k];
+                   float v_1p = ptr_m1_neg2[k];
+                   float v_1p_c = ptr_m1_c[k];
+                   float v_1n = ptr_p1_neg2[k];
+                   float v_1n_c = ptr_p1_c[k];
+                   float v_3n = ptr_p3_neg2[k];
 
                     temp_s1 += abs(v_3p - v_1p) + abs(v_1p_c - v_1n) +
                                abs(v_1n_c - v_3n);
@@ -251,13 +265,20 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
             bool s2_valid = (u <= 0 && x >= -u2) || (u >= 0 && x < width + u2);
             if (s2_valid) {
                 float temp_s2 = 0.0f;
+                threadgroup float* ptr_m3_pos2 = s_m3 + s_center + u2;
+                threadgroup float* ptr_m1_c = s_m1 + s_center;
+                threadgroup float* ptr_m1_pos2 = s_m1 + s_center + u2;
+                threadgroup float* ptr_p1_c = s_p1 + s_center;
+                threadgroup float* ptr_p1_pos2 = s_p1 + s_center + u2;
+                threadgroup float* ptr_p3_c = s_p3 + s_center;
+
                 for (int k = -p.nrad; k <= p.nrad; ++k) {
-                    float v_3p = s_m3[s_center + u2 + k];
-                    float v_1p = s_m1[s_center + k];
-                    float v_1p_c = s_m1[s_center + u2 + k];
-                    float v_1n = s_p1[s_center + k];
-                    float v_1n_c = s_p1[s_center + u2 + k];
-                    float v_3n = s_p3[s_center + k];
+                    float v_3p = ptr_m3_pos2[k];
+                    float v_1p = ptr_m1_c[k];
+                    float v_1p_c = ptr_m1_pos2[k];
+                    float v_1n = ptr_p1_c[k];
+                    float v_1n_c = ptr_p1_pos2[k];
+                    float v_3n = ptr_p3_c[k];
 
                     temp_s2 += abs(v_3p - v_1p) + abs(v_1p_c - v_1n) +
                                abs(v_1n_c - v_3n);
