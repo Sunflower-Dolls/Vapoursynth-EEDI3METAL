@@ -145,7 +145,7 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
                        uint2 tid [[thread_position_in_threadgroup]],
                        uint2 tg_pos [[threadgroup_position_in_grid]]) {
     int halo = (p.cost3 ? 2 * p.mdis : p.mdis) + p.nrad;
-    int shared_width = 16 + 2 * halo;
+    int shared_width = 32 + 2 * halo;
 
     int t_x = tid.x;
     int t_y = tid.y;
@@ -171,9 +171,9 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
         device const float* g_row_p1 = src_buf + r_p1 * stride;
         device const float* g_row_p3 = src_buf + r_p3 * stride;
 
-        int group_base_x = tg_pos.x * 16;
+        int group_base_x = tg_pos.x * 32;
         
-        for (int k = t_x; k < shared_width; k += 16) {
+        for (int k = t_x; k < shared_width; k += 32) {
             int global_read_x = group_base_x - halo + k;
             int ix = mirror_x(global_read_x, p.width);
             

@@ -409,9 +409,12 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
                     threadsPerThreadgroup:MTLSizeMake(32, 16, 1)];
             }
 
-            int halo = (d->cost3 ? 2 * d->mdis : d->mdis) + d->nrad;
-            int shared_width = 16 + (2 * halo);
-            int shared_mem_size = 16 * 4 * shared_width * sizeof(float);
+            MTLSize threadsPerGroup = MTLSizeMake(32, 4, 1);
+            auto halo = (d->cost3 ? 2 * d->mdis : d->mdis) + d->nrad;
+            auto shared_width = threadsPerGroup.width + (2 * halo);
+
+            auto shared_mem_size =
+                threadsPerGroup.height * 4 * shared_width * sizeof(float);
 
             [enc setComputePipelineState:metal_d->calc_costs_pso];
             [enc setBuffer:src_buf_metal offset:0 atIndex:0];
@@ -421,7 +424,7 @@ static const VSFrame *VS_CC eedi3GetFrame(int n, int activationReason,
             [enc setThreadgroupMemoryLength:shared_mem_size atIndex:0];
 
             [enc dispatchThreads:MTLSizeMake(dst_width, field_height, 1)
-                threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+                threadsPerThreadgroup:threadsPerGroup];
 
             [enc setComputePipelineState:metal_d->viterbi_scan_pso];
             [enc setBuffer:res.costBuffer offset:0 atIndex:0];
