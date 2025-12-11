@@ -74,7 +74,7 @@ kernel void dilate_mask(device float* mclip_buf [[buffer(0)]],
     
     int mdis = p.mdis;
     int halo = mdis;
-    int sw = 32 + 2 * halo;
+    int sw = 32 + 2 * halo + 1;
     
     int ty = tid.y;
     int tx = tid.x;
@@ -145,16 +145,16 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
                        uint2 tid [[thread_position_in_threadgroup]],
                        uint2 tg_pos [[threadgroup_position_in_grid]]) {
     int halo = (p.cost3 ? 2 * p.mdis : p.mdis) + p.nrad;
-    int shared_width = 32 + 2 * halo;
+    int sw = 32 + 2 * halo + 1;
 
     int t_x = tid.x;
     int t_y = tid.y;
     int y = p.field + gid.y * 2;
 
-    threadgroup float* s_m3 = shared_mem + (t_y * 4 + 0) * shared_width;
-    threadgroup float* s_m1 = shared_mem + (t_y * 4 + 1) * shared_width;
-    threadgroup float* s_p1 = shared_mem + (t_y * 4 + 2) * shared_width;
-    threadgroup float* s_p3 = shared_mem + (t_y * 4 + 3) * shared_width;
+    threadgroup float* s_m3 = shared_mem + (t_y * 4 + 0) * sw;
+    threadgroup float* s_m1 = shared_mem + (t_y * 4 + 1) * sw;
+    threadgroup float* s_p1 = shared_mem + (t_y * 4 + 2) * sw;
+    threadgroup float* s_p3 = shared_mem + (t_y * 4 + 3) * sw;
 
     if (y < p.height) {
         int ref_field = 1 - p.field;
@@ -173,7 +173,7 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
 
         int group_base_x = tg_pos.x * 32;
         
-        for (int k = t_x; k < shared_width; k += 32) {
+        for (int k = t_x; k < sw; k += 32) {
             int global_read_x = group_base_x - halo + k;
             int ix = mirror_x(global_read_x, p.width);
             
