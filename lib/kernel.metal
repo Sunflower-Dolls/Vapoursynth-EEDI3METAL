@@ -286,16 +286,6 @@ kernel void calc_costs(device const float* src_buf [[buffer(0)]],
                 s2 = temp_s2;
             }
 
-            float s1_final = max(s1, max(s2, s0));
-            if (s1 == -FLT_MAX && s2 == -FLT_MAX)
-                s1_final = s0;
-            else if (s1 > -FLT_MAX && s2 == -FLT_MAX)
-                s1_final = s1;
-            else if (s2 > -FLT_MAX && s1 == -FLT_MAX)
-                s1_final = s2;
-            else
-                s1_final = max(s1, s2);
-
             float val_s1 = (s1 > -FLT_MAX) ? s1 : ((s2 > -FLT_MAX) ? s2 : s0);
             float val_s2 =
                 (s2 > -FLT_MAX) ? s2 : ((val_s1 > -FLT_MAX) ? val_s1 : s0);
