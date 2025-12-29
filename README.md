@@ -1,6 +1,6 @@
 # EEDI3METAL
 
-Archived. Use [Vapoursynth-EEDI3VK](https://github.com/Sunflower-Dolls/Vapoursynth-EEDI3VK) instead.
+**Archived. Use [Vapoursynth-EEDI3VK](https://github.com/Sunflower-Dolls/Vapoursynth-EEDI3VK) instead.**
 
 Ported from [VapourSynth-EEDI3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)
 
