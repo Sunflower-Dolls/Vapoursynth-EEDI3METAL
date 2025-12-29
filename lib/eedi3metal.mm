@@ -931,7 +931,7 @@ static void VS_CC eedi3Create(const VSMap *in, VSMap *out,
 VS_EXTERNAL_API(void)
 VapourSynthPluginInit2(VSPlugin *plugin, const VSPLUGINAPI *vspapi) {
     vspapi->configPlugin("com.Sunflower-Dolls.eedi3metal", "eedi3metal",
-                         "EEDI3 Metal Port", VS_MAKE_VERSION(1, 0),
+                         "EEDI3 Metal Port", VS_MAKE_VERSION(3, 1),
                          VAPOURSYNTH_API_VERSION, 0, plugin);
     vspapi->registerFunction("EEDI3",
                              "clip:vnode;"
