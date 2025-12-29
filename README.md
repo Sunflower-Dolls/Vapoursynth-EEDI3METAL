@@ -1,5 +1,7 @@
 # EEDI3METAL
 
+Archived. Use [Vapoursynth-EEDI3VK](https://github.com/Sunflower-Dolls/Vapoursynth-EEDI3VK) instead.
+
 Ported from [VapourSynth-EEDI3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)
 
 EEDI3 works by finding the best non-decreasing (non-crossing) warping between two lines by minimizing a cost functional. The cost is based on neighborhood similarity (favor connecting regions that look similar), the vertical difference created by the interpolated values (favor small differences), the interpolation directions (favor short connections vs long), and the change in interpolation direction from pixel to pixel (favor small changes).
